@@ -21,6 +21,7 @@ from perceptron import image, perceive, text
 from pydantic import BaseModel, Field
 
 from webcam_downloader import WebcamDownloader, ImageInfo
+from utils import calc_composite
 
 
 
@@ -108,6 +109,8 @@ class CameraAnalysis:
     camera_name: str
     rating: Optional[SkiConditionsRating] = None
     error: Optional[str] = None
+    image_url: Optional[str] = None
+    is_base64: bool = False
 
 
 @dataclass
@@ -139,12 +142,11 @@ class ResortSummary:
         self.avg_visibility = sum(a.rating.visibility for a in successful) / n
         self.avg_weather = sum(a.rating.weather_conditions for a in successful) / n
 
-        # Weighted composite score
-        self.composite_score = (
-            self.avg_crowdedness * 0.15 +
-            self.avg_snow_quality * 0.40 +
-            self.avg_visibility * 0.20 +
-            self.avg_weather * 0.25
+        self.composite_score = calc_composite(
+            self.avg_crowdedness,
+            self.avg_snow_quality,
+            self.avg_visibility,
+            self.avg_weather,
         )
 
 
@@ -170,6 +172,8 @@ class ResortAnalyzer:
         analysis = CameraAnalysis(
             resort_name=camera_info.resort.name,
             camera_name=camera_info.camera.name,
+            image_url=camera_info.url,
+            is_base64=camera_info.is_base64,
         )
 
         try:
@@ -279,10 +283,59 @@ class ResortAnalyzer:
             print(f"🏆 RECOMMENDATION: {best.resort_name} (Score: {best.composite_score:.1f}/10)")
         print("=" * 70)
 
+    @staticmethod
+    def save_results(summaries: list[ResortSummary], filepath: str = None):
+        """Save analysis results to JSON file."""
+        from pathlib import Path
+
+        if filepath is None:
+            filepath = Path(__file__).parent / ".analysis_results.json"
+
+        data = {
+            "resorts": [
+                {
+                    "resort_name": s.resort_name,
+                    "resort_key": s.resort_key,
+                    "cameras": [
+                        {
+                            "camera_name": a.camera_name,
+                            "image_url": a.image_url,
+                            "is_base64": a.is_base64,
+                            "rating": {
+                                "crowdedness": a.rating.crowdedness,
+                                "snow_quality": a.rating.snow_quality,
+                                "visibility": a.rating.visibility,
+                                "weather_conditions": a.rating.weather_conditions,
+                                "notes": a.rating.notes,
+                            } if a.rating else None,
+                            "error": a.error,
+                        }
+                        for a in s.camera_analyses
+                    ],
+                }
+                for s in summaries
+            ]
+        }
+
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+
+        return filepath
+
 
 # =============================================================================
 # CLI
 # =============================================================================
+
+def launch_gui():
+    """Launch the Streamlit GUI."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    app_path = Path(__file__).parent / "ui.py"
+    subprocess.run([sys.executable, "-m", "streamlit", "run", str(app_path)])
+
 
 def main():
     import argparse
@@ -294,16 +347,26 @@ def main():
         "--resort", "-r",
         help="Analyze only this resort (e.g., 'stevens_pass')"
     )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Launch GUI after analysis"
+    )
 
     args = parser.parse_args()
     analyzer = ResortAnalyzer()
 
     if args.resort:
         summary = analyzer.analyze_resort(args.resort)
-        analyzer.print_rankings([summary])
+        summaries = [summary]
     else:
         summaries = analyzer.analyze_all_resorts()
-        analyzer.print_rankings(summaries)
+
+    analyzer.print_rankings(summaries)
+    analyzer.save_results(summaries)
+
+    if args.gui:
+        launch_gui()
 
     return 0
 
