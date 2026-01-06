@@ -170,3 +170,68 @@ Edit `webcam_downloader/config.py` to add new resorts:
     ],
 ),
 ```
+
+## AWS Deployment
+
+Infrastructure is managed with Terraform. Creates:
+- S3 bucket for results
+- Lambda function (Docker container with ffmpeg)
+- ECR repository for container images
+- CloudFront distribution for caching
+- EventBridge rule (runs every 30 minutes)
+- IAM roles and policies
+
+### Prerequisites
+
+- [Terraform](https://www.terraform.io/downloads) >= 1.0
+- [Docker](https://www.docker.com/products/docker-desktop)
+- [AWS CLI](https://aws.amazon.com/cli/) configured with credentials
+
+### Deploy
+
+```bash
+# 1. Configure .env (if not already done)
+cp .env.example .env
+# Edit .env with your PERCEPTRON_API_KEY
+
+# 2. Deploy everything (prompts for AWS region)
+./deploy.sh all
+
+# Or specify region explicitly
+./deploy.sh --region us-west-2 all
+```
+
+Or step by step:
+
+```bash
+./deploy.sh init    # Initialize Terraform
+./deploy.sh plan    # Preview changes
+./deploy.sh apply   # Create AWS resources
+./deploy.sh push    # Build and push Docker image
+./deploy.sh outputs # Show CloudFront URL, etc.
+```
+
+### Architecture
+
+```
+EventBridge (every 30 min, 7am-9pm Pacific)
+     │
+     ▼
+Lambda (Docker container)
+     │
+     ▼
+S3 bucket (analysis_results.json)
+     │
+     ▼
+CloudFront (5 min TTL)
+     │
+     ▼
+Website fetches from CloudFront URL
+```
+
+### Outputs
+
+After deployment, `./deploy.sh outputs` shows:
+- `cloudfront_url` - URL for your website to fetch results
+- `ecr_repository_url` - For pushing new Docker images
+- `s3_bucket_name` - Where results are stored

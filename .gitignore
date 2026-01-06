@@ -2,3 +2,8 @@ __pycache__/
 *.pyc
 .env
 .analysis_results.json
+
+# Terraform
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*

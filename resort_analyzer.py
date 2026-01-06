@@ -284,14 +284,9 @@ class ResortAnalyzer:
         print("=" * 70)
 
     @staticmethod
-    def save_results(summaries: list[ResortSummary], filepath: str = None):
-        """Save analysis results to JSON file."""
-        from pathlib import Path
-
-        if filepath is None:
-            filepath = Path(__file__).parent / ".analysis_results.json"
-
-        data = {
+    def results_to_dict(summaries: list[ResortSummary]) -> dict:
+        """Convert results to a dictionary for JSON serialization."""
+        return {
             "resorts": [
                 {
                     "resort_name": s.resort_name,
@@ -317,10 +312,37 @@ class ResortAnalyzer:
             ]
         }
 
+    @staticmethod
+    def save_results(summaries: list[ResortSummary], filepath: str = None):
+        """Save analysis results to local JSON file."""
+        from pathlib import Path
+
+        if filepath is None:
+            filepath = Path(__file__).parent / ".analysis_results.json"
+
+        data = ResortAnalyzer.results_to_dict(summaries)
+
         with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
         return filepath
+
+    @staticmethod
+    def save_results_to_s3(summaries: list[ResortSummary], bucket: str, key: str = "analysis_results.json"):
+        """Save analysis results to S3."""
+        import boto3
+
+        data = ResortAnalyzer.results_to_dict(summaries)
+
+        s3 = boto3.client("s3")
+        s3.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=json.dumps(data, indent=2),
+            ContentType="application/json",
+        )
+
+        return f"s3://{bucket}/{key}"
 
 
 # =============================================================================
