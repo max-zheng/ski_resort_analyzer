@@ -231,6 +231,24 @@ RESORTS: dict[str, Resort] = {
                 provider="youtube",
                 type=CameraType.BASE,
             ),
+            Camera(
+                id="YhM0ns8LLOg",
+                name="Summit West Base Area",
+                provider="youtube",
+                type=CameraType.BASE,
+            ),
+            Camera(
+                id="vhO8nNqg9iw",
+                name="Summit East Base Area",
+                provider="youtube",
+                type=CameraType.BASE,
+            ),
+            Camera(
+                id="8wk81COX2cg",
+                name="Alpental Base Area",
+                provider="youtube",
+                type=CameraType.BASE,
+            ),
         ],
     ),
 

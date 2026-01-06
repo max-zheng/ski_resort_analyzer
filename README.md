@@ -6,10 +6,10 @@ Analyzes ski resort webcam images using Perceptron models to rank resorts based 
 
 | Resort | Region | ToS Prohibits Crawling | Video Source | Extraction Method | Cameras | Status |
 |--------|--------|------------------------|--------------|-------------------|---------|--------|
-| Stevens Pass | WA | No | Brownrice CDN | Static JPEG URL | 4 | Enabled |
-| White Pass | WA | No | Brownrice CDN | Static JPEG URL | 3 | Enabled |
+| Stevens Pass | WA | No | Brownrice CDN | Static JPEG URL | 5 | Enabled |
+| White Pass | WA | No | Brownrice CDN | Static JPEG URL | 6 | Enabled |
 | Whistler Blackcomb | BC | No | Brownrice CDN | Static JPEG URL | 9 | Enabled |
-| Summit at Snoqualmie | WA | No | YouTube Livestream | Static thumbnail URL | 3 | Enabled |
+| Summit at Snoqualmie | WA | No | YouTube Livestream | Static thumbnail URL | 6 | Enabled |
 | Crystal Mountain | WA | **Yes** (Alterra ToS) | Verkada/Roundshot | N/A | 2+ | Blocked |
 | Mission Ridge | WA | No | YouTube Livestream | Static thumbnail URL | 3 | Enabled |
 | 49 Degrees North | WA | No | Self-hosted | Download to base64 | 3 | Enabled |
@@ -73,6 +73,17 @@ python resort_analyzer.py
 python resort_analyzer.py --resort stevens_pass
 ```
 
+### Analyze and launch GUI
+
+```bash
+python resort_analyzer.py --gui
+```
+
+The GUI (Streamlit) displays:
+- Resorts ranked by composite score
+- Webcam images with individual ratings per camera
+- Navigation between resorts (previous/next)
+
 ### List available webcam URLs
 
 ```bash
@@ -98,41 +109,22 @@ python -m webcam_downloader --list-cameras stevens_pass
    - Snow quality (1-10)
    - Visibility (1-10)
    - Weather conditions (1-10)
-   - Overall appeal (1-10)
 
-3. **Rankings** are calculated using a weighted composite score and displayed with recommendations.
+3. **Rankings** are calculated using a weighted composite score:
+   - Snow quality: 40%
+   - Weather: 25%
+   - Visibility: 20%
+   - Crowdedness: 15%
 
 ## Provider Details
 
-### Brownrice
-- **URL Pattern**: `https://player.brownrice.com/snapshot/{camera_id}`
-- **Response**: Static JPEG image
-- **URL Permanence**: Permanent (no tokens, always returns current snapshot)
-- **Used by**: Stevens Pass, White Pass, Whistler Blackcomb, and many Vail resorts
-
-### YouTube
-- **URL Pattern**: `https://i.ytimg.com/vi/{video_id}/maxresdefault_live.jpg`
-- **Response**: Static JPEG thumbnail
-- **URL Permanence**: Permanent (no tokens, image updates every ~5 minutes)
-- **Used by**: Summit at Snoqualmie, Mission Ridge
-
-### Ski49n (Self-hosted)
-- **URL Pattern**: `https://www.ski49n.com/webcams/{name}.jpg`
-- **Response**: Downloads image, returns base64 data
-- **URL Permanence**: Permanent (no tokens)
-- **Used by**: 49 Degrees North
-
-### WetMet
-- **URL Pattern**: `https://api.wetmet.net/widgets/stream/frame.php?uid={uid}`
-- **Response**: HTML page with HLS video stream (.m3u8)
-- **URL Permanence**: Temporary (30 minutes) - contains `wmsAuthSign` token, must fetch fresh URL each time
-- **Extraction**: Requires ffmpeg to extract a frame
-- **Used by**: Mt Hood Meadows
-
-### OpenSnow (Not Used)
-- **URL Pattern**: `https://webcams.opensnow.com/current/{id}.jpg`
-- **ToS**: Explicitly prohibits crawling and AI/ML use
-- **Status**: Cannot use
+| Provider | URL Pattern | Response | URL Permanence | Used By |
+|----------|-------------|----------|----------------|---------|
+| Brownrice | `player.brownrice.com/snapshot/{id}` | Static JPEG | Permanent | Stevens Pass, White Pass, Whistler |
+| YouTube | `i.ytimg.com/vi/{id}/maxresdefault_live.jpg` | Static JPEG thumbnail | Permanent (~5 min refresh) | Summit at Snoqualmie, Mission Ridge |
+| Ski49n | `ski49n.com/webcams/{name}.jpg` | Downloads to base64 | Permanent | 49 Degrees North |
+| WetMet | `api.wetmet.net/widgets/stream/frame.php?uid={uid}` | HLS stream (needs ffmpeg) | Temporary (30 min token) | Mt Hood Meadows |
+| OpenSnow | `webcams.opensnow.com/current/{id}.jpg` | N/A | N/A | **Blocked** (ToS prohibits AI/ML) |
 
 ## ToS Investigation Notes
 
