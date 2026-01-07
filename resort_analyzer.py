@@ -9,6 +9,7 @@ based on current conditions (crowdedness, snow quality, etc.)
 import base64
 import json
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dotenv import load_dotenv
@@ -177,8 +178,8 @@ class ResortAnalyzer:
         perceptron.configure(provider="perceptron", api_key=os.environ.get("PERCEPTRON_API_KEY"))
         self.downloader = WebcamDownloader()
 
-    def analyze_camera(self, camera_info: ImageInfo) -> CameraAnalysis:
-        """Analyze a single camera by its URL or base64 data."""
+    def analyze_camera(self, camera_info: ImageInfo, max_retries: int = 3) -> CameraAnalysis:
+        """Analyze a single camera by its URL or base64 data with retry logic."""
         camera_type = camera_info.camera.type
         analysis = CameraAnalysis(
             resort_name=camera_info.resort.name,
@@ -190,19 +191,26 @@ class ResortAnalyzer:
 
         prompt = get_prompt_for_camera(camera_type)
 
-        try:
-            # Handle base64 data vs URL
-            if camera_info.is_base64:
-                # Decode base64 to bytes for Perceptron
-                image_data = base64.b64decode(camera_info.url)
-                result = analyze_webcam_image(image_data, prompt)
-            else:
-                # Pass URL directly to model - no download needed!
-                result = analyze_webcam_image(camera_info.url, prompt)
-            analysis.rating = parse_rating_response(result.text)
-        except Exception as e:
-            analysis.error = str(e)
+        last_error = None
+        for attempt in range(max_retries):
+            try:
+                # Handle base64 data vs URL
+                if camera_info.is_base64:
+                    # Decode base64 to bytes for Perceptron
+                    image_data = base64.b64decode(camera_info.url)
+                    result = analyze_webcam_image(image_data, prompt)
+                else:
+                    # Pass URL directly to model - no download needed!
+                    result = analyze_webcam_image(camera_info.url, prompt)
+                analysis.rating = parse_rating_response(result.text)
+                return analysis  # Success, return immediately
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    time.sleep(1)  # Brief delay before retry
 
+        # All retries failed
+        analysis.error = str(last_error)
         return analysis
 
     def analyze_resort(self, resort_key: str) -> ResortSummary:

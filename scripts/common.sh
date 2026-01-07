@@ -26,6 +26,7 @@ load_env() {
 
     export TF_VAR_aws_region="$AWS_REGION"
     export TF_VAR_perceptron_api_key="$PERCEPTRON_API_KEY"
+    export TF_VAR_domain_name="$DOMAIN_NAME"
     export AWS_REGION
 
     log "Using AWS region: $AWS_REGION"

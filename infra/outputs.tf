@@ -22,3 +22,24 @@ output "lambda_function_name" {
   description = "Lambda function name"
   value       = aws_lambda_function.analyzer.function_name
 }
+
+# Website outputs
+output "website_bucket_name" {
+  description = "S3 bucket name for website files"
+  value       = aws_s3_bucket.website.id
+}
+
+output "website_cloudfront_domain" {
+  description = "CloudFront domain for the website"
+  value       = aws_cloudfront_distribution.website.domain_name
+}
+
+output "website_url" {
+  description = "Website URL"
+  value       = "https://${var.domain_name}"
+}
+
+output "route53_nameservers" {
+  description = "Route 53 nameservers for the domain"
+  value       = data.aws_route53_zone.website.name_servers
+}

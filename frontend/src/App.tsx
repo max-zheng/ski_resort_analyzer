@@ -52,7 +52,7 @@ function App() {
               <h1 className="text-2xl font-bold">PNW Ski Resort Rankings</h1>
             </div>
             <div className="flex items-center">
-              <span className="text-sm text-muted-foreground mr-2">Analysis by</span>
+              <span className="text-sm text-muted-foreground mr-2">AI analysis by</span>
               <a href="https://perceptron.inc" target="_blank" rel="noopener noreferrer">
                 <img
                   src="https://mintcdn.com/perceptron/CuyGah1e2BqRrsVm/logo/perceptron-full-logo-dark.svg?fit=max&auto=format&n=CuyGah1e2BqRrsVm&q=85&s=859b1eeb3fa33674275135e6590684df"
@@ -110,7 +110,7 @@ function App() {
 
       <footer className="border-t bg-white mt-12">
         <div className="max-w-5xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-          Data updated from webcam analysis
+          <p>All webcam imagery remains the property of the respective ski resorts and is used for informational purposes only.</p>
         </div>
       </footer>
     </div>

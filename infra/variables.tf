@@ -33,3 +33,8 @@ variable "cloudfront_ttl" {
   type        = number
   default     = 300  # 5 minutes
 }
+
+variable "domain_name" {
+  description = "Domain name for the website"
+  type        = string
+}
