@@ -8,9 +8,9 @@ RUN yum install -y git tar xz && \
     rm -rf /tmp/ffmpeg* && \
     yum clean all
 
-# Install Python dependencies (Lambda-only, no streamlit)
-COPY requirements-lambda.txt .
-RUN pip install --no-cache-dir -r requirements-lambda.txt
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code and ensure readable
 COPY lambda_handler.py resort_analyzer.py utils.py ./

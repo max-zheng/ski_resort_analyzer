@@ -1,6 +1,0 @@
-boto3
-ffmpeg-python
-numpy<2.0
-git+https://github.com/perceptron-ai-inc/perceptron.git@main
-pydantic
-python-dotenv

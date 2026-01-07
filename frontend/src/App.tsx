@@ -1,0 +1,120 @@
+import { useEffect, useState } from "react";
+import { AnalysisResults, Resort } from "@/types";
+import { calcAverages } from "@/lib/calc-averages";
+import { ResortCard } from "@/components/ResortCard";
+import { Mountain, RefreshCw } from "lucide-react";
+
+// Configure this to your CloudFront distribution URL
+const DATA_URL = import.meta.env.VITE_DATA_URL || "/analysis_results.json";
+
+function App() {
+  const [results, setResults] = useState<AnalysisResults | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(DATA_URL);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.status}`);
+      }
+      const data: AnalysisResults = await response.json();
+      setResults(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Sort resorts by composite score
+  const sortedResorts: Resort[] = results
+    ? [...results.resorts].sort((a, b) => {
+        const avgA = calcAverages(a.cameras);
+        const avgB = calcAverages(b.cameras);
+        return avgB.composite - avgA.composite;
+      })
+    : [];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Mountain className="h-8 w-8 text-primary" />
+              <h1 className="text-2xl font-bold">PNW Ski Resort Rankings</h1>
+            </div>
+            <div className="flex items-center">
+              <span className="text-sm text-muted-foreground mr-2">Analysis by</span>
+              <a href="https://perceptron.inc" target="_blank" rel="noopener noreferrer">
+                <img
+                  src="https://mintcdn.com/perceptron/CuyGah1e2BqRrsVm/logo/perceptron-full-logo-dark.svg?fit=max&auto=format&n=CuyGah1e2BqRrsVm&q=85&s=859b1eeb3fa33674275135e6590684df"
+                  alt="Perceptron"
+                  className="h-6 brightness-0"
+                />
+              </a>
+            </div>
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-8">
+        {loading && (
+          <div className="text-center py-12">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="mt-4 text-muted-foreground">Loading resort data...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="text-center py-12">
+            <p className="text-red-500">Error: {error}</p>
+            <button
+              onClick={fetchData}
+              className="mt-4 px-4 py-2 rounded-md bg-primary text-primary-foreground"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && sortedResorts.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No resort data available.</p>
+          </div>
+        )}
+
+        {!loading && !error && sortedResorts.length > 0 && (
+          <div className="space-y-4">
+            {sortedResorts.map((resort, index) => (
+              <ResortCard key={resort.resort_key} resort={resort} rank={index + 1} />
+            ))}
+          </div>
+        )}
+      </main>
+
+      <footer className="border-t bg-white mt-12">
+        <div className="max-w-5xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
+          Data updated from webcam analysis
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default App;

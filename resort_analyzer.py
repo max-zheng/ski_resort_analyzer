@@ -370,16 +370,6 @@ class ResortAnalyzer:
 # CLI
 # =============================================================================
 
-def launch_gui():
-    """Launch the Streamlit GUI."""
-    import subprocess
-    import sys
-    from pathlib import Path
-
-    app_path = Path(__file__).parent / "ui.py"
-    subprocess.run([sys.executable, "-m", "streamlit", "run", str(app_path)])
-
-
 def main():
     import argparse
 
@@ -389,11 +379,6 @@ def main():
     parser.add_argument(
         "--resort", "-r",
         help="Analyze only this resort (e.g., 'stevens_pass')"
-    )
-    parser.add_argument(
-        "--gui",
-        action="store_true",
-        help="Launch GUI after analysis"
     )
 
     args = parser.parse_args()
@@ -407,9 +392,6 @@ def main():
 
     analyzer.print_rankings(summaries)
     analyzer.save_results(summaries)
-
-    if args.gui:
-        launch_gui()
 
     return 0
 
