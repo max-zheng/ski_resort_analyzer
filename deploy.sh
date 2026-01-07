@@ -40,8 +40,7 @@ log "Logging into ECR..."
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_URL"
 
 log "Building Docker image for arm64..."
-cd "$SCRIPT_DIR"
-docker build --platform linux/arm64 --provenance=false -t ski-resort-analyzer .
+docker build --platform linux/arm64 --provenance=false -t ski-resort-analyzer "$SCRIPT_DIR/analysis"
 
 log "Pushing image..."
 docker tag ski-resort-analyzer:latest "$ECR_URL:latest"
