@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code and ensure readable
 COPY lambda_handler.py resort_analyzer.py utils.py ./
 COPY webcam_downloader/ ./webcam_downloader/
+COPY image_utils/ ./image_utils/
 RUN chmod -R 755 ${LAMBDA_TASK_ROOT}
 
 CMD ["lambda_handler.handler"]
