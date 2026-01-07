@@ -23,7 +23,7 @@ export function calcAverages(cameras: Camera[]): Averages {
       fieldValues["confidence"].push(rating.confidence);
     }
 
-    // Add category values (safely handle missing categories)
+    // Add category values
     const categories = rating.categories || {};
     for (const [key, value] of Object.entries(categories)) {
       if (typeof value === "number" && value != null) {

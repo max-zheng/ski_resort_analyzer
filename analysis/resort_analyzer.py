@@ -51,10 +51,6 @@ class CategoryRatings(BaseModel):
         ge=1, le=10,
         description="1 = ghost town or overcrowded, 10 = ideal crowd level with good energy"
     )
-    snow_depth_inches: Optional[int] = Field(
-        default=None, ge=0,
-        description="Snow depth in inches as shown on snow stake"
-    )
 
 
 class SkiConditionsRating(BaseModel):
@@ -76,35 +72,13 @@ class SkiConditionsRating(BaseModel):
 # ANALYSIS FUNCTIONS
 # =============================================================================
 
-# Shared rating guide
-RATING_GUIDE = """Rating guide (1-10 scale, use any integer):
-- confidence: 1-2 = very unclear, 3-4 = poor visibility, 5-6 = somewhat clear, 7-8 = mostly clear, 9-10 = very confident
-- snow_quality: 1-2 = bare spots/icy, 3-4 = thin coverage/crusty, 5-6 = decent/groomed, 7-8 = good coverage, 9-10 = fresh powder
-- visibility: 1-2 = whiteout/can't see, 3-4 = foggy/very hazy, 5-6 = hazy/partly cloudy, 7-8 = mostly clear, 9-10 = crystal clear
-- weather_conditions: 1-2 = heavy storm/rain, 3-4 = snowing/windy, 5-6 = overcast/cloudy, 7-8 = partly sunny, 9-10 = clear sunny
-- vibe: 1-2 = ghost town/empty or overcrowded/chaotic, 5-6 = light or busy crowds, 9-10 = ideal crowd with good energy
+PROMPT = """Analyze this ski resort webcam image and respond with JSON.
 
-If nighttime/dark, note "nighttime" in notes."""
-
-# Prompts per camera type
-PROMPTS = {
-    CameraType.SNOW_STAKE: f"""Analyze this snow stake webcam image and respond with JSON.
-
-How to read snow depth:
-- The snow stake is a ruler with numbers on both sides (inches and centimeters)
-- Return the LOWEST visible number on the inches side
-
-{RATING_GUIDE}""",
-
-    "default": f"""Analyze this ski resort webcam image and respond with JSON.
-
-{RATING_GUIDE}""",
-}
-
-
-def get_prompt_for_camera(camera_type: CameraType) -> str:
-    """Get the analysis prompt for a camera type."""
-    return PROMPTS.get(camera_type, PROMPTS["default"])
+Rating guide (1-10 scale):
+- snow_quality: 1-2 = bare/icy, 3-4 = thin/crusty, 5-6 = groomed, 7-8 = good coverage, 9-10 = fresh powder
+- visibility: 1-2 = whiteout, 3-4 = foggy, 5-6 = hazy, 7-8 = mostly clear, 9-10 = crystal clear
+- weather_conditions: 1-2 = storm/rain, 3-4 = snowing, 5-6 = overcast, 7-8 = partly sunny, 9-10 = sunny
+- vibe: 1-2 = empty/overcrowded, 5-6 = moderate crowds, 9-10 = ideal energy"""
 
 
 @perceive(model="isaac-0.2-2b-preview", max_tokens=256, response_format=pydantic_format(SkiConditionsRating))
@@ -180,28 +154,23 @@ class ResortAnalyzer:
 
     def analyze_camera(self, camera_info: ImageInfo, max_retries: int = 3) -> CameraAnalysis:
         """Analyze a single camera by its URL or base64 data with retry logic."""
-        camera_type = camera_info.camera.type
         analysis = CameraAnalysis(
             resort_name=camera_info.resort.name,
             camera_name=camera_info.camera.name,
-            camera_type=camera_type,
+            camera_type=camera_info.camera.type,
             image_url=camera_info.url,
             is_base64=camera_info.is_base64,
         )
-
-        prompt = get_prompt_for_camera(camera_type)
 
         last_error = None
         for attempt in range(max_retries):
             try:
                 # Handle base64 data vs URL
                 if camera_info.is_base64:
-                    # Decode base64 to bytes for Perceptron
                     image_data = base64.b64decode(camera_info.url)
-                    result = analyze_webcam_image(image_data, prompt)
+                    result = analyze_webcam_image(image_data, PROMPT)
                 else:
-                    # Pass URL directly to model - no download needed!
-                    result = analyze_webcam_image(camera_info.url, prompt)
+                    result = analyze_webcam_image(camera_info.url, PROMPT)
                 analysis.rating = parse_rating_response(result.text)
                 return analysis  # Success, return immediately
             except Exception as e:
@@ -223,8 +192,11 @@ class ResortAnalyzer:
         Returns:
             ResortSummary with averaged scores
         """
-        # Get webcam URLs
-        camera_infos = self.downloader.get_resort_urls(resort_key)
+        # Get webcam URLs (skip snow stake cameras)
+        camera_infos = [
+            c for c in self.downloader.get_resort_urls(resort_key)
+            if c.camera.type != CameraType.SNOW_STAKE
+        ]
 
         resort_name = camera_infos[0].resort.name if camera_infos else resort_key
         summary = ResortSummary(resort_name=resort_name, resort_key=resort_key)
