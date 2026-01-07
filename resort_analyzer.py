@@ -16,12 +16,14 @@ load_dotenv()
 from dataclasses import dataclass, field
 from typing import Optional, Union
 
+from webcam_downloader.config import CameraType
+
 import perceptron
-from perceptron import image, perceive, text
+from perceptron import image, perceive, pydantic_format, text
 from pydantic import BaseModel, Field
 
 from webcam_downloader import WebcamDownloader, ImageInfo
-from utils import calc_composite
+from utils import calc_averages
 
 
 
@@ -29,16 +31,12 @@ from utils import calc_composite
 # STRUCTURED OUTPUT SCHEMA
 # =============================================================================
 
-class SkiConditionsRating(BaseModel):
-    """Rating schema for ski resort webcam analysis."""
+class CategoryRatings(BaseModel):
+    """Nested category ratings."""
 
-    crowdedness: int = Field(
-        ge=1, le=10,
-        description="1 = very crowded/busy, 10 = empty/no people visible"
-    )
     snow_quality: int = Field(
         ge=1, le=10,
-        description="1 = poor/icy/bare spots, 10 = fresh powder/excellent coverage"
+        description="1 = poor/icy/bare spots, 10 = excellent fresh powder"
     )
     visibility: int = Field(
         ge=1, le=10,
@@ -48,9 +46,28 @@ class SkiConditionsRating(BaseModel):
         ge=1, le=10,
         description="1 = stormy/heavy snow/rain, 10 = perfect sunny day"
     )
+    vibe: int = Field(
+        ge=1, le=10,
+        description="1 = ghost town or overcrowded, 10 = ideal crowd level with good energy"
+    )
+    snow_depth_inches: Optional[int] = Field(
+        default=None, ge=0,
+        description="Snow depth in inches as shown on snow stake"
+    )
 
+
+class SkiConditionsRating(BaseModel):
+    """Rating schema for ski resort webcam analysis."""
+
+    confidence: int = Field(
+        ge=1, le=10,
+        description="1 = very uncertain/unclear image, 10 = very confident in ratings"
+    )
     notes: str = Field(
         description="Brief observation about current conditions (1-2 sentences)"
+    )
+    categories: CategoryRatings = Field(
+        description="Category ratings for conditions"
     )
 
 
@@ -58,48 +75,51 @@ class SkiConditionsRating(BaseModel):
 # ANALYSIS FUNCTIONS
 # =============================================================================
 
-ANALYSIS_PROMPT = """Analyze this ski resort webcam image and rate the current conditions.
+# Shared rating guide
+RATING_GUIDE = """Rating guide (1-10 scale, use any integer):
+- confidence: 1-2 = very unclear, 3-4 = poor visibility, 5-6 = somewhat clear, 7-8 = mostly clear, 9-10 = very confident
+- snow_quality: 1-2 = bare spots/icy, 3-4 = thin coverage/crusty, 5-6 = decent/groomed, 7-8 = good coverage, 9-10 = fresh powder
+- visibility: 1-2 = whiteout/can't see, 3-4 = foggy/very hazy, 5-6 = hazy/partly cloudy, 7-8 = mostly clear, 9-10 = crystal clear
+- weather_conditions: 1-2 = heavy storm/rain, 3-4 = snowing/windy, 5-6 = overcast/cloudy, 7-8 = partly sunny, 9-10 = clear sunny
+- vibe: 1-2 = ghost town/empty or overcrowded/chaotic, 5-6 = light or busy crowds, 9-10 = ideal crowd with good energy
 
-You MUST respond with ONLY valid JSON in this exact format:
-{
-    "crowdedness": <1-10>,
-    "snow_quality": <1-10>,
-    "visibility": <1-10>,
-    "weather_conditions": <1-10>,
-    "notes": "<brief observation>"
+If nighttime/dark, note "nighttime" in notes."""
+
+# Prompts per camera type
+PROMPTS = {
+    CameraType.SNOW_STAKE: f"""Analyze this snow stake webcam image and respond with JSON.
+
+How to read snow depth:
+- The snow stake is a ruler with numbers on both sides (inches and centimeters)
+- Return the LOWEST visible number on the inches side
+
+{RATING_GUIDE}""",
+
+    "default": f"""Analyze this ski resort webcam image and respond with JSON.
+
+{RATING_GUIDE}""",
 }
 
-Rating guide:
-- crowdedness: 1 = very crowded, 10 = empty/no people
-- snow_quality: 1 = poor/icy/bare, 10 = fresh powder/excellent
-- visibility: 1 = foggy/whiteout, 10 = crystal clear
-- weather_conditions: 1 = stormy, 10 = perfect sunny
 
-If nighttime/dark, rate based on visible snow coverage and note "nighttime" in notes.
-
-Respond with JSON only, no other text."""
+def get_prompt_for_camera(camera_type: CameraType) -> str:
+    """Get the analysis prompt for a camera type."""
+    return PROMPTS.get(camera_type, PROMPTS["default"])
 
 
-@perceive(model="isaac-0.1", max_tokens=1024)
-def analyze_webcam_image(image_source: Union[str, bytes]):
+@perceive(model="isaac-0.2-2b-preview", max_tokens=256, response_format=pydantic_format(SkiConditionsRating))
+def analyze_webcam_image(image_source: Union[str, bytes], prompt: str):
     """Analyze a ski resort webcam image and return structured ratings.
 
     Args:
         image_source: Either a URL string or raw image bytes
+        prompt: The analysis prompt to use
     """
-    return image(image_source) + text(ANALYSIS_PROMPT)
+    return image(image_source) + text(prompt)
 
 
 def parse_rating_response(response_text: str) -> SkiConditionsRating:
     """Parse the model response into a SkiConditionsRating object."""
-    data = json.loads(response_text.strip())
-
-    # Validate and clamp values to 1-10 range
-    for key in ["crowdedness", "snow_quality", "visibility", "weather_conditions"]:
-        if key in data:
-            data[key] = max(1, min(10, int(data[key])))
-
-    return SkiConditionsRating(**data)
+    return SkiConditionsRating.model_validate_json(response_text.strip())
 
 
 @dataclass
@@ -107,6 +127,7 @@ class CameraAnalysis:
     """Analysis result for a single camera."""
     resort_name: str
     camera_name: str
+    camera_type: CameraType = CameraType.OTHER
     rating: Optional[SkiConditionsRating] = None
     error: Optional[str] = None
     image_url: Optional[str] = None
@@ -119,35 +140,24 @@ class ResortSummary:
     resort_name: str
     resort_key: str
     camera_analyses: list[CameraAnalysis] = field(default_factory=list)
-
-    # Averaged scores
-    avg_crowdedness: float = 0.0
-    avg_snow_quality: float = 0.0
-    avg_visibility: float = 0.0
-    avg_weather: float = 0.0
-
-    # Final composite score
+    averages: dict = field(default_factory=dict)
     composite_score: float = 0.0
 
     def calculate_averages(self):
-        """Calculate average scores from all successful camera analyses."""
+        """Calculate average scores from all camera analyses."""
         successful = [a for a in self.camera_analyses if a.rating is not None]
-
         if not successful:
             return
 
-        n = len(successful)
-        self.avg_crowdedness = sum(a.rating.crowdedness for a in successful) / n
-        self.avg_snow_quality = sum(a.rating.snow_quality for a in successful) / n
-        self.avg_visibility = sum(a.rating.visibility for a in successful) / n
-        self.avg_weather = sum(a.rating.weather_conditions for a in successful) / n
+        # Extract category ratings (nested) plus confidence from each
+        ratings = []
+        for a in successful:
+            rating_dict = a.rating.categories.model_dump()
+            rating_dict["confidence"] = a.rating.confidence
+            ratings.append(rating_dict)
 
-        self.composite_score = calc_composite(
-            self.avg_crowdedness,
-            self.avg_snow_quality,
-            self.avg_visibility,
-            self.avg_weather,
-        )
+        self.averages = calc_averages(ratings)
+        self.composite_score = self.averages.pop("composite", 0)
 
 
 class ResortAnalyzer:
@@ -169,22 +179,26 @@ class ResortAnalyzer:
 
     def analyze_camera(self, camera_info: ImageInfo) -> CameraAnalysis:
         """Analyze a single camera by its URL or base64 data."""
+        camera_type = camera_info.camera.type
         analysis = CameraAnalysis(
             resort_name=camera_info.resort.name,
             camera_name=camera_info.camera.name,
+            camera_type=camera_type,
             image_url=camera_info.url,
             is_base64=camera_info.is_base64,
         )
+
+        prompt = get_prompt_for_camera(camera_type)
 
         try:
             # Handle base64 data vs URL
             if camera_info.is_base64:
                 # Decode base64 to bytes for Perceptron
                 image_data = base64.b64decode(camera_info.url)
-                result = analyze_webcam_image(image_data)
+                result = analyze_webcam_image(image_data, prompt)
             else:
                 # Pass URL directly to model - no download needed!
-                result = analyze_webcam_image(camera_info.url)
+                result = analyze_webcam_image(camera_info.url, prompt)
             analysis.rating = parse_rating_response(result.text)
         except Exception as e:
             analysis.error = str(e)
@@ -267,10 +281,9 @@ class ResortAnalyzer:
             print(f"\n#{i} {summary.resort_name}")
             print(f"   Composite Score: {summary.composite_score:.1f}/10")
             print(f"   Cameras analyzed: {successful}/{total}")
-            print(f"   ├── Crowdedness:  {summary.avg_crowdedness:.1f}/10 (higher = less crowded)")
-            print(f"   ├── Snow Quality: {summary.avg_snow_quality:.1f}/10")
-            print(f"   ├── Visibility:   {summary.avg_visibility:.1f}/10")
-            print(f"   └── Weather:      {summary.avg_weather:.1f}/10")
+            for field, value in summary.averages.items():
+                if field != "snow_depth_inches":
+                    print(f"   ├── {field}: {value:.1f}/10")
 
             # Print individual camera notes
             for analysis in summary.camera_analyses:
@@ -284,6 +297,19 @@ class ResortAnalyzer:
         print("=" * 70)
 
     @staticmethod
+    def _rating_to_dict(rating: SkiConditionsRating) -> dict:
+        """Convert a rating to a dictionary, excluding None values."""
+        categories = {
+            k: v for k, v in rating.categories.model_dump().items() if v is not None
+        }
+
+        return {
+            "confidence": rating.confidence,
+            "notes": rating.notes,
+            "categories": categories,
+        }
+
+    @staticmethod
     def results_to_dict(summaries: list[ResortSummary]) -> dict:
         """Convert results to a dictionary for JSON serialization."""
         return {
@@ -294,15 +320,10 @@ class ResortAnalyzer:
                     "cameras": [
                         {
                             "camera_name": a.camera_name,
+                            "camera_type": a.camera_type.value,
                             "image_url": a.image_url,
                             "is_base64": a.is_base64,
-                            "rating": {
-                                "crowdedness": a.rating.crowdedness,
-                                "snow_quality": a.rating.snow_quality,
-                                "visibility": a.rating.visibility,
-                                "weather_conditions": a.rating.weather_conditions,
-                                "notes": a.rating.notes,
-                            } if a.rating else None,
+                            "rating": ResortAnalyzer._rating_to_dict(a.rating) if a.rating else None,
                             "error": a.error,
                         }
                         for a in s.camera_analyses

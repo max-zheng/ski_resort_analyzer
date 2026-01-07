@@ -10,7 +10,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from utils import calc_composite
+from utils import calc_averages
 
 RESULTS_FILE = Path(__file__).parent / ".analysis_results.json"
 
@@ -23,26 +23,21 @@ def load_results():
         return json.load(f)
 
 
-def calc_averages(resort):
-    """Calculate average scores from camera ratings."""
-    ratings = [c["rating"] for c in resort.get("cameras", []) if c.get("rating")]
-    if not ratings:
+def get_resort_averages(resort):
+    """Calculate averages for a resort from camera ratings."""
+    cameras = [c for c in resort.get("cameras", []) if c.get("rating")]
+    if not cameras:
         raise ValueError(f"No ratings found for resort: {resort.get('resort_name', 'unknown')}")
 
-    n = len(ratings)
-    avg = {
-        "crowdedness": sum(r["crowdedness"] for r in ratings) / n,
-        "snow_quality": sum(r["snow_quality"] for r in ratings) / n,
-        "visibility": sum(r["visibility"] for r in ratings) / n,
-        "weather": sum(r["weather_conditions"] for r in ratings) / n,
-    }
-    avg["composite"] = calc_composite(
-        avg["crowdedness"],
-        avg["snow_quality"],
-        avg["visibility"],
-        avg["weather"],
-    )
-    return avg
+    # Extract category ratings (nested) plus confidence from each
+    ratings = []
+    for c in cameras:
+        rating = c["rating"]
+        rating_dict = rating.get("categories", {}).copy()
+        rating_dict["confidence"] = rating.get("confidence")
+        ratings.append(rating_dict)
+
+    return calc_averages(ratings)
 
 
 def main():
@@ -87,7 +82,7 @@ def main():
     # Current resort data
     resort = resorts[st.session_state.resort_idx]
     rank = st.session_state.resort_idx + 1
-    avg = calc_averages(resort)
+    avg = get_resort_averages(resort)
 
     # Resort header with ranking
     st.markdown("---")
@@ -96,18 +91,18 @@ def main():
 
     # Overall scores
     st.subheader("Overall Scores")
-    score_cols = st.columns(5)
 
-    with score_cols[0]:
-        st.metric("Composite", f"{avg['composite']:.1f}/10")
-    with score_cols[1]:
-        st.metric("Crowdedness", f"{avg['crowdedness']:.1f}/10", help="Higher = less crowded")
-    with score_cols[2]:
-        st.metric("Snow Quality", f"{avg['snow_quality']:.1f}/10")
-    with score_cols[3]:
-        st.metric("Visibility", f"{avg['visibility']:.1f}/10")
-    with score_cols[4]:
-        st.metric("Weather", f"{avg['weather']:.1f}/10")
+    # Display composite first, then all other categories dynamically
+    display_fields = [("Composite", avg.get("composite", 0))]
+    for key, value in avg.items():
+        if key not in ("composite", "snow_depth_inches") and isinstance(value, (int, float)):
+            label = key.replace("_", " ").title()
+            display_fields.append((label, value))
+
+    score_cols = st.columns(len(display_fields))
+    for i, (label, value) in enumerate(display_fields):
+        with score_cols[i]:
+            st.metric(label, f"{value:.1f}/10")
 
     # Camera analyses
     st.markdown("---")
@@ -137,12 +132,27 @@ def main():
             with ratings_col:
                 rating = cam.get("rating")
                 if rating:
-                    r1, r2, r3, r4 = st.columns(4)
-                    r1.metric("Crowd", f"{rating['crowdedness']}/10")
-                    r2.metric("Snow", f"{rating['snow_quality']}/10")
-                    r3.metric("Vis", f"{rating['visibility']}/10")
-                    r4.metric("Weather", f"{rating['weather_conditions']}/10")
-                    st.caption(f"_{rating.get('notes', '')}_")
+                    categories = rating.get("categories", {})
+
+                    # Build list of metrics to display
+                    metrics = []
+                    for key, value in categories.items():
+                        if value is not None:
+                            if key == "snow_depth_inches":
+                                metrics.append((key.replace("_", " ").title(), f"{value}\""))
+                            else:
+                                label = key.replace("_", " ").title()
+                                metrics.append((label, f"{value}/10"))
+
+                    # Display metrics dynamically
+                    if metrics:
+                        cols = st.columns(len(metrics))
+                        for i, (label, value) in enumerate(metrics):
+                            cols[i].metric(label, value)
+
+                    confidence = rating.get("confidence", 0)
+                    conf_indicator = "🟢" if confidence >= 6 else "🔴"
+                    st.caption(f"{conf_indicator} Confidence: {confidence}/10 — _{rating.get('notes', '')}_")
                 elif cam.get("error"):
                     st.error(f"Analysis failed: {cam['error']}")
 
@@ -150,7 +160,7 @@ def main():
 
     # Quick navigation at bottom
     st.markdown("### Quick Navigation")
-    resort_options = [f"#{i+1} {r['resort_name']} ({calc_averages(r)['composite']:.1f})" for i, r in enumerate(resorts)]
+    resort_options = [f"#{i+1} {r['resort_name']} ({get_resort_averages(r)['composite']:.1f})" for i, r in enumerate(resorts)]
     selected = st.selectbox(
         "Jump to resort:",
         options=range(len(resorts)),
