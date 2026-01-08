@@ -116,12 +116,65 @@ class WetMetProvider(WebcamProvider):
         return extract_frame(stream_url)
 
 
+class BigWhiteProvider(WebcamProvider):
+    """
+    Big White self-hosted webcam provider.
+
+    Used by: Big White
+
+    Scrapes the webcam page to get current image URLs (they may change over time).
+    Returns base64-encoded images.
+    """
+
+    name = "bigwhite"
+    webcam_page = "https://www.bigwhite.com/mountain-conditions/webcams"
+    returns_base64 = True
+    _url_cache: dict[str, str] = {}
+
+    def _fetch_webcam_urls(self) -> dict[str, str]:
+        """Fetch current webcam URLs from the Big White webcams page."""
+        import re
+        import urllib.request
+
+        with urllib.request.urlopen(self.webcam_page, timeout=10) as response:
+            html = response.read().decode("utf-8")
+
+        # Extract image URLs like /sites/default/files/village_849.jpg
+        pattern = r'/sites/default/files/(\w+)_\d+\.jpg'
+        matches = re.findall(pattern, html)
+
+        urls = {}
+        for match in matches:
+            # Find the full URL for this camera
+            full_pattern = rf'/sites/default/files/({match}_\d+\.jpg)'
+            full_match = re.search(full_pattern, html)
+            if full_match:
+                urls[match.lower()] = f"https://www.bigwhite.com/sites/default/files/{full_match.group(1)}"
+
+        return urls
+
+    def get_image_url(self, camera_id: str) -> str:
+        from image_utils import download_image
+
+        # Fetch URLs if cache is empty
+        if not self._url_cache:
+            self._url_cache.update(self._fetch_webcam_urls())
+
+        # camera_id is like "village", "powpow", "cliff"
+        url = self._url_cache.get(camera_id.lower())
+        if not url:
+            raise ValueError(f"Camera '{camera_id}' not found on Big White webcams page")
+
+        return download_image(url)
+
+
 # Provider registry
 PROVIDERS: dict[str, WebcamProvider] = {
     "brownrice": BrownriceProvider(),
     "youtube": YouTubeProvider(),
     "ski49n": Ski49nProvider(),
     "wetmet": WetMetProvider(),
+    "bigwhite": BigWhiteProvider(),
 }
 
 

@@ -347,6 +347,48 @@ RESORTS: dict[str, Resort] = {
             ),
         ],
     ),
+
+    # -------------------------------------------------------------------------
+    # BIG WHITE - British Columbia
+    # Self-hosted static images (URLs scraped dynamically as they may change)
+    # -------------------------------------------------------------------------
+    "big_white": Resort(
+        name="Big White",
+        website="https://www.bigwhite.com",
+        region="British Columbia",
+        cameras=[
+            Camera(
+                id="village",
+                name="Village Centre",
+                provider="bigwhite",
+                type=CameraType.BASE,
+            ),
+            Camera(
+                id="powpow",
+                name="Pow Cam",
+                provider="bigwhite",
+                type=CameraType.SNOW_STAKE,
+            ),
+            Camera(
+                id="cliff",
+                name="The Cliff",
+                provider="bigwhite",
+                type=CameraType.SUMMIT,
+            ),
+            Camera(
+                id="easystreet",
+                name="Easy Street",
+                provider="bigwhite",
+                type=CameraType.TERRAIN,
+            ),
+            Camera(
+                id="happyvalley",
+                name="Happy Valley",
+                provider="bigwhite",
+                type=CameraType.BASE,
+            ),
+        ],
+    ),
 }
 
 

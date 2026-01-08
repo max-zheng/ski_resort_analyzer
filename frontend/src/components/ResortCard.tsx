@@ -16,6 +16,7 @@ const resortMapsUrls: Record<string, string> = {
   mt_hood_meadows: "https://maps.app.goo.gl/yTZH5ST8Q6euzybh8",
   whistler_blackcomb: "https://maps.app.goo.gl/9Njw9Q16wVVCqHFN8",
   "49_degrees_north": "https://maps.app.goo.gl/xqNuPVdGmS4jeFX17",
+  big_white: "https://maps.app.goo.gl/VDrcCU8KW7qminie9",
 };
 
 const resortWebsiteUrls: Record<string, string> = {
@@ -29,6 +30,7 @@ const resortWebsiteUrls: Record<string, string> = {
   mt_hood_meadows: "https://www.skihood.com/",
   whistler_blackcomb: "https://www.whistlerblackcomb.com/",
   "49_degrees_north": "https://ski49n.com/",
+  big_white: "https://www.bigwhite.com/",
 };
 
 interface ResortCardProps {
