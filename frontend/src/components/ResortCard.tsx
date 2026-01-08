@@ -3,7 +3,7 @@ import { Resort, Camera } from "@/types";
 import { calcAverages } from "@/lib/calc-averages";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Medal, ChevronDown, ChevronUp, MapPin, Globe } from "lucide-react";
+import { Medal, ChevronDown, ChevronUp, MapPin, Globe } from "lucide-react";
 
 const resortMapsUrls: Record<string, string> = {
   stevens_pass: "https://maps.app.goo.gl/QGEX4scWkhDeL8o59",
@@ -53,16 +53,24 @@ function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) {
     return (
       <div className="flex items-center gap-1 text-yellow-500">
-        <Trophy className="h-6 w-6" />
+        <Medal className="h-6 w-6" />
         <span className="font-bold">#1</span>
       </div>
     );
   }
-  if (rank <= 3) {
+  if (rank === 2) {
     return (
-      <div className="flex items-center gap-1 text-gray-500">
-        <Medal className="h-5 w-5" />
-        <span className="font-semibold">#{rank}</span>
+      <div className="flex items-center gap-1 text-gray-400">
+        <Medal className="h-6 w-6" />
+        <span className="font-bold">#2</span>
+      </div>
+    );
+  }
+  if (rank === 3) {
+    return (
+      <div className="flex items-center gap-1 text-amber-700">
+        <Medal className="h-6 w-6" />
+        <span className="font-bold">#3</span>
       </div>
     );
   }
