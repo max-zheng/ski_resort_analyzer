@@ -35,37 +35,18 @@ from utils import calc_averages
 class CategoryRatings(BaseModel):
     """Nested category ratings."""
 
-    snow_quality: int = Field(
-        ge=1, le=10,
-        description="1 = poor/icy/bare spots, 10 = excellent fresh powder"
-    )
-    visibility: int = Field(
-        ge=1, le=10,
-        description="1 = foggy/whiteout/poor, 10 = crystal clear/sunny"
-    )
-    weather_conditions: int = Field(
-        ge=1, le=10,
-        description="1 = stormy/heavy snow/rain, 10 = perfect sunny day"
-    )
-    vibe: int = Field(
-        ge=1, le=10,
-        description="1 = ghost town or overcrowded, 10 = ideal crowd level with good energy"
-    )
+    snow_quality: int = Field(ge=1, le=10)
+    visibility: int = Field(ge=1, le=10)
+    weather_conditions: int = Field(ge=1, le=10)
+    activity: int = Field(ge=1, le=10)
 
 
 class SkiConditionsRating(BaseModel):
     """Rating schema for ski resort webcam analysis."""
 
-    confidence: int = Field(
-        ge=1, le=10,
-        description="1 = very uncertain/unclear image, 10 = very confident in ratings"
-    )
-    notes: str = Field(
-        description="Brief observation about current conditions (1-2 sentences)"
-    )
-    categories: CategoryRatings = Field(
-        description="Category ratings for conditions"
-    )
+    confidence: int = Field(ge=1, le=10)
+    notes: str = Field(description="Brief observation (1-2 sentences)")
+    categories: CategoryRatings
 
 
 # =============================================================================
@@ -74,11 +55,17 @@ class SkiConditionsRating(BaseModel):
 
 PROMPT = """Analyze this ski resort webcam image and respond with JSON.
 
+Be decisive and honest. Avoid defaulting to safe middle scores (5-6). Use the full 1-10 range based on what you actually see.
+
 Rating guide (1-10 scale):
-- snow_quality: 1-2 = bare/icy, 3-4 = thin/crusty, 5-6 = groomed, 7-8 = good coverage, 9-10 = fresh powder
-- visibility: 1-2 = whiteout, 3-4 = foggy, 5-6 = hazy, 7-8 = mostly clear, 9-10 = crystal clear
-- weather_conditions: 1-2 = storm/rain, 3-4 = snowing, 5-6 = overcast, 7-8 = partly sunny, 9-10 = sunny
-- vibe: 1-2 = empty/overcrowded, 5-6 = moderate crowds, 9-10 = ideal energy"""
+- snow_quality: 1-2 = bare/icy, 3-4 = thin/crusty, 5-6 = average groomed, 7-8 = good coverage, 9-10 = fresh powder
+- visibility: 1-2 = whiteout/can't see, 3-4 = foggy/poor, 5-6 = hazy, 7-8 = mostly clear, 9-10 = crystal clear
+- weather_conditions: 1-2 = storm/rain, 3-4 = heavy snow, 5-6 = overcast, 7-8 = partly sunny, 9-10 = blue sky sunny
+- activity: 1-2 = dead/overcrowded, 3-4 = very quiet/busy, 5-6 = moderate, 7-8 = good energy, 9-10 = perfect crowd level
+
+- confidence: 1-2 = can barely see anything, 3-4 = very blurry/dark, 5-6 = somewhat unclear, 7-8 = mostly clear image, 9-10 = crystal clear sharp image
+
+If conditions are clearly good, rate them high. If conditions are clearly bad, rate them low."""
 
 
 @perceive(model="isaac-0.2-2b-preview", max_tokens=256, response_format=pydantic_format(SkiConditionsRating))
