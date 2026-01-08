@@ -1,9 +1,9 @@
 # EventBridge rule to trigger Lambda on schedule
-# Runs every 30 minutes from 7am-9pm Pacific (15:00-04:30 UTC)
+# Runs every 10 minutes from 7am-9pm Pacific (15:00-04:30 UTC)
 resource "aws_cloudwatch_event_rule" "schedule" {
   name                = "${var.project_name}-schedule"
-  description         = "Trigger ski resort analyzer every 30 minutes during resort hours (7am-9pm Pacific)"
-  schedule_expression = "cron(0,30 0-4,15-23 * * ? *)"
+  description         = "Trigger ski resort analyzer every 10 minutes during resort hours (7am-9pm Pacific)"
+  schedule_expression = "cron(0,10,20,30,40,50 0-4,15-23 * * ? *)"
 }
 
 # EventBridge target
