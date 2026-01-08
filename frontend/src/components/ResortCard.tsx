@@ -125,11 +125,7 @@ function CameraCard({ camera }: { camera: Camera }) {
                 </p>
               )}
             </>
-          ) : camera.error ? (
-            <p className="text-red-500 text-sm">Error: {camera.error}</p>
-          ) : (
-            <p className="text-muted-foreground text-sm">No rating available</p>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

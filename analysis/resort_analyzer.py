@@ -33,12 +33,12 @@ from utils import calc_averages
 # =============================================================================
 
 class CategoryRatings(BaseModel):
-    """Nested category ratings."""
+    """Nested category ratings. All fields are optional - only provide if confident."""
 
-    snow_quality: int = Field(ge=1, le=10)
-    visibility: int = Field(ge=1, le=10)
-    weather_conditions: int = Field(ge=1, le=10)
-    activity: int = Field(ge=1, le=10)
+    snow_quality: Optional[int] = Field(default=None, ge=1, le=10)
+    visibility: Optional[int] = Field(default=None, ge=1, le=10)
+    weather_conditions: Optional[int] = Field(default=None, ge=1, le=10)
+    activity: Optional[int] = Field(default=None, ge=1, le=10)
 
 
 class SkiConditionsRating(BaseModel):
@@ -54,6 +54,8 @@ class SkiConditionsRating(BaseModel):
 # =============================================================================
 
 PROMPT = """Analyze this ski resort webcam image and respond with JSON.
+
+IMPORTANT: Only provide a score for a category if you can clearly see and assess it. If you cannot determine a category from the image, omit it (set to null). It's better to provide fewer confident scores than to guess.
 
 Be decisive and honest. Avoid defaulting to safe middle scores (5-6). Use the full 1-10 range based on what you actually see.
 
