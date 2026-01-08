@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AnalysisResults, Resort } from "@/types";
 import { calcAverages } from "@/lib/calc-averages";
 import { ResortCard } from "@/components/ResortCard";
-import { Mountain, RefreshCw } from "lucide-react";
+import { Mountain, Clock } from "lucide-react";
 
 // Configure this to your CloudFront distribution URL
 const DATA_URL = import.meta.env.VITE_DATA_URL || "/analysis_results.json";
@@ -43,7 +43,23 @@ function App() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Background images - hidden on mobile, visible on larger screens */}
+      <div
+        className="hidden xl:block fixed left-0 top-0 h-full bg-cover bg-center opacity-30 pointer-events-none"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1605540436563-5bca919ae766?w=2160&q=90')`,
+          width: 'calc(50% - 522px)',
+        }}
+      />
+      <div
+        className="hidden xl:block fixed right-0 top-0 h-full bg-cover bg-center opacity-30 pointer-events-none"
+        style={{
+          backgroundImage: `url('https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=2160&q=90')`,
+          width: 'calc(50% - 522px)',
+        }}
+      />
+
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -61,23 +77,27 @@ function App() {
                 />
               </a>
             </div>
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8">
+        {results?.updated_at && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+            <Clock className="h-4 w-4" />
+            <span>
+              Last updated:{" "}
+              {new Date(results.updated_at).toLocaleString(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </span>
+          </div>
+        )}
+
         {loading && (
           <div className="text-center py-12">
-            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary" />
-            <p className="mt-4 text-muted-foreground">Loading resort data...</p>
+            <p className="text-muted-foreground">Loading resort data...</p>
           </div>
         )}
 

@@ -292,7 +292,10 @@ class ResortAnalyzer:
     @staticmethod
     def results_to_dict(summaries: list[ResortSummary]) -> dict:
         """Convert results to a dictionary for JSON serialization."""
+        from datetime import datetime, timezone
+
         return {
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "resorts": [
                 {
                     "resort_name": s.resort_name,

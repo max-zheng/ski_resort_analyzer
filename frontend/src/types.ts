@@ -24,5 +24,6 @@ export interface Resort {
 }
 
 export interface AnalysisResults {
+  updated_at: string;
   resorts: Resort[];
 }
