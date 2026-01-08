@@ -67,7 +67,7 @@ function App() {
               <Mountain className="h-8 w-8 text-primary" />
               <div>
                 <h1 className="text-2xl font-bold">PNW Resort Conditions</h1>
-                <p className="text-sm text-muted-foreground">AI-powered webcam analysis to help you decide which resort to visit</p>
+                <p className="text-sm text-muted-foreground">AI-powered webcam analysis to help you decide which resort to visit · Updated every 10 mins</p>
               </div>
             </div>
             <div className="flex items-center">
