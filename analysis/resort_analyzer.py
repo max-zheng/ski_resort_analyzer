@@ -181,21 +181,34 @@ class ResortAnalyzer:
         Returns:
             ResortSummary with averaged scores
         """
-        # Get webcam URLs (skip snow stake cameras)
-        camera_infos = [
-            c for c in self.downloader.get_resort_urls(resort_key)
-            if c.camera.type != CameraType.SNOW_STAKE
-        ]
+        # Get all webcam URLs
+        all_camera_infos = self.downloader.get_resort_urls(resort_key)
 
-        resort_name = camera_infos[0].resort.name if camera_infos else resort_key
+        # Separate snow stake cameras (don't analyze, but include in results)
+        cameras_to_analyze = [c for c in all_camera_infos if c.camera.type != CameraType.SNOW_STAKE]
+        snow_stake_cameras = [c for c in all_camera_infos if c.camera.type == CameraType.SNOW_STAKE]
+
+        resort_name = all_camera_infos[0].resort.name if all_camera_infos else resort_key
         summary = ResortSummary(resort_name=resort_name, resort_key=resort_key)
 
-        # Analyze cameras in parallel
-        print(f"  Analyzing {len(camera_infos)} cameras in parallel...")
+        # Add snow stake cameras without analysis (just show the image)
+        for cam_info in snow_stake_cameras:
+            analysis = CameraAnalysis(
+                resort_name=cam_info.resort.name,
+                camera_name=cam_info.camera.name,
+                camera_type=cam_info.camera.type,
+                image_url=cam_info.url,
+                is_base64=cam_info.is_base64,
+            )
+            summary.camera_analyses.append(analysis)
+            print(f"    ❄ {cam_info.camera.name}: Snow stake (not analyzed)")
+
+        # Analyze non-snow-stake cameras in parallel
+        print(f"  Analyzing {len(cameras_to_analyze)} cameras in parallel...")
         with ThreadPoolExecutor() as executor:
             future_to_cam = {
                 executor.submit(self.analyze_camera, cam_info): cam_info
-                for cam_info in camera_infos
+                for cam_info in cameras_to_analyze
             }
 
             for future in as_completed(future_to_cam):
