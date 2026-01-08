@@ -132,8 +132,9 @@ function App() {
       </main>
 
       <footer className="border-t bg-white mt-12">
-        <div className="max-w-5xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-          <p>All webcam imagery remains the property of the respective ski resorts and is used for informational purposes only.</p>
+        <div className="max-w-5xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground space-y-2">
+          <p>Webcam imagery is the property of the respective ski resorts. This site is not affiliated with or endorsed by any resort.</p>
+          <p>Scores reflect current conditions only, not overall resort quality. For inquiries, contact <a href={`mailto:${import.meta.env.VITE_CONTACT_EMAIL}`} className="underline hover:text-primary">{import.meta.env.VITE_CONTACT_EMAIL}</a></p>
         </div>
       </footer>
     </div>
