@@ -198,7 +198,7 @@ export function ResortCard({ resort, rank }: ResortCardProps) {
                 </div>
                 <div className="text-sm text-muted-foreground">Overall</div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {Object.entries(avg)
                   .filter(([key]) => key !== "composite" && key !== "snow_depth_inches")
                   .map(([key, value]) => (

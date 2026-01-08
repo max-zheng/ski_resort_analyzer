@@ -65,10 +65,13 @@ function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Mountain className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold">PNW Ski Resort Rankings</h1>
+              <div>
+                <h1 className="text-2xl font-bold">PNW Resort Conditions</h1>
+                <p className="text-sm text-muted-foreground">AI-powered webcam analysis to help you decide which resort to visit</p>
+              </div>
             </div>
             <div className="flex items-center">
-              <span className="text-sm text-muted-foreground mr-2">AI analysis by</span>
+              <span className="text-sm text-muted-foreground mr-2">Vision AI by</span>
               <a href="https://perceptron.inc" target="_blank" rel="noopener noreferrer">
                 <img
                   src="https://mintcdn.com/perceptron/CuyGah1e2BqRrsVm/logo/perceptron-full-logo-dark.svg?fit=max&auto=format&n=CuyGah1e2BqRrsVm&q=85&s=859b1eeb3fa33674275135e6590684df"
