@@ -17,7 +17,6 @@ load_dotenv()
 from dataclasses import dataclass, field
 from typing import Optional, Union
 
-from webcam_downloader.config import CameraType
 
 import perceptron
 from perceptron import image, perceive, pydantic_format, text
@@ -32,58 +31,78 @@ from utils import calc_averages
 # STRUCTURED OUTPUT SCHEMA
 # =============================================================================
 
-class CategoryRatings(BaseModel):
-    """Nested category ratings. All fields are optional - only provide if confident."""
+def create_rating_schema(categories: list[str]):
+    """Dynamically create a Pydantic model with only the specified category fields."""
+    from pydantic import create_model
 
-    snow_quality: Optional[int] = Field(default=None, ge=1, le=10)
-    visibility: Optional[int] = Field(default=None, ge=1, le=10)
-    weather_conditions: Optional[int] = Field(default=None, ge=1, le=10)
-    activity: Optional[int] = Field(default=None, ge=1, le=10)
+    # Build category fields dynamically
+    category_fields = {
+        cat: (int, Field(ge=1, le=10))
+        for cat in categories
+    }
 
+    DynamicCategories = create_model("DynamicCategories", **category_fields)
 
-class SkiConditionsRating(BaseModel):
-    """Rating schema for ski resort webcam analysis."""
+    DynamicRating = create_model(
+        "DynamicRating",
+        confidence=(int, Field(ge=1, le=10)),
+        notes=(str, Field(description="Concise observation (1 sentence)")),
+        categories=(DynamicCategories, ...),
+    )
 
-    confidence: int = Field(ge=1, le=10)
-    notes: str = Field(description="Brief observation (1-2 sentences)")
-    categories: CategoryRatings
+    return DynamicRating
 
 
 # =============================================================================
 # ANALYSIS FUNCTIONS
 # =============================================================================
 
-PROMPT = """Analyze this ski resort webcam image and respond with JSON.
+# Category descriptions for dynamic prompt building
+CATEGORY_DESCRIPTIONS = {
+    "snow_quality": "snow_quality: 1-2 = bare/icy, 3-4 = thin/crusty, 5-6 = average groomed, 7-8 = good coverage, 9-10 = fresh powder",
+    "visibility": "visibility: 1-2 = whiteout/can't see, 3-4 = foggy/poor, 5-6 = hazy, 7-8 = mostly clear, 9-10 = crystal clear",
+    "weather_conditions": "weather_conditions: 1-2 = storm/rain, 3-4 = heavy snow, 5-6 = overcast, 7-8 = partly sunny, 9-10 = blue sky sunny",
+    "activity": "activity: 1-2 = empty/no movement, 3-4 = few people/quiet, 5-6 = moderate activity, 7-8 = busy/lively, 9-10 = bustling/energetic",
+}
 
-IMPORTANT: Only provide a score for a category if you can clearly see and assess it. If you cannot determine a category from the image, omit it (set to null). It's better to provide fewer confident scores than to guess.
+
+def build_prompt(categories: list[str]) -> str:
+    """Build a dynamic prompt based on the categories to evaluate."""
+    category_guides = "\n".join(f"- {CATEGORY_DESCRIPTIONS[cat]}" for cat in categories if cat in CATEGORY_DESCRIPTIONS)
+
+    return f"""Analyze this ski resort webcam image and rate these categories: {", ".join(categories)}
 
 Be decisive and honest. Avoid defaulting to safe middle scores (5-6). Use the full 1-10 range based on what you actually see.
 
 Rating guide (1-10 scale):
-- snow_quality: 1-2 = bare/icy, 3-4 = thin/crusty, 5-6 = average groomed, 7-8 = good coverage, 9-10 = fresh powder
-- visibility: 1-2 = whiteout/can't see, 3-4 = foggy/poor, 5-6 = hazy, 7-8 = mostly clear, 9-10 = crystal clear
-- weather_conditions: 1-2 = storm/rain, 3-4 = heavy snow, 5-6 = overcast, 7-8 = partly sunny, 9-10 = blue sky sunny
-- activity: 1-2 = dead/overcrowded, 3-4 = very quiet/busy, 5-6 = moderate, 7-8 = good energy, 9-10 = perfect crowd level
+{category_guides}
 
 - confidence: 1-2 = can barely see anything, 3-4 = very blurry/dark, 5-6 = somewhat unclear, 7-8 = mostly clear image, 9-10 = crystal clear sharp image
 
 If conditions are clearly good, rate them high. If conditions are clearly bad, rate them low."""
 
 
-@perceive(model="isaac-0.2-2b-preview", max_tokens=256, response_format=pydantic_format(SkiConditionsRating))
-def analyze_webcam_image(image_source: Union[str, bytes], prompt: str):
+def analyze_webcam_image(image_source: Union[str, bytes], prompt: str, categories: list[str]) -> BaseModel:
     """Analyze a ski resort webcam image and return structured ratings.
 
     Args:
         image_source: Either a URL string or raw image bytes
         prompt: The analysis prompt to use
+        categories: List of categories to evaluate (schema is built dynamically)
+
+    Returns:
+        Dynamic Pydantic model with confidence, notes, and categories fields
     """
-    return image(image_source) + text(prompt)
+    # Create dynamic schema with only the requested categories
+    schema = create_rating_schema(categories)
 
+    # Build the perceive function with dynamic schema
+    @perceive(model="isaac-0.2-2b-preview", max_tokens=256, response_format=pydantic_format(schema))
+    def _analyze(img, txt):
+        return image(img) + text(txt)
 
-def parse_rating_response(response_text: str) -> SkiConditionsRating:
-    """Parse the model response into a SkiConditionsRating object."""
-    return SkiConditionsRating.model_validate_json(response_text.strip())
+    result = _analyze(image_source, prompt)
+    return schema.model_validate_json(result.text.strip())
 
 
 @dataclass
@@ -91,8 +110,7 @@ class CameraAnalysis:
     """Analysis result for a single camera."""
     resort_name: str
     camera_name: str
-    camera_type: CameraType = CameraType.OTHER
-    rating: Optional[SkiConditionsRating] = None
+    rating: Optional[BaseModel] = None
     error: Optional[str] = None
     image_url: Optional[str] = None
     is_base64: bool = False
@@ -146,10 +164,13 @@ class ResortAnalyzer:
         analysis = CameraAnalysis(
             resort_name=camera_info.resort.name,
             camera_name=camera_info.camera.name,
-            camera_type=camera_info.camera.type,
             image_url=camera_info.url,
             is_base64=camera_info.is_base64,
         )
+
+        # Build prompt based on camera's categories
+        categories = camera_info.camera.get_category_names()
+        prompt = build_prompt(categories)
 
         last_error = None
         for attempt in range(max_retries):
@@ -157,10 +178,10 @@ class ResortAnalyzer:
                 # Handle base64 data vs URL
                 if camera_info.is_base64:
                     image_data = base64.b64decode(camera_info.url)
-                    result = analyze_webcam_image(image_data, PROMPT)
+                    rating = analyze_webcam_image(image_data, prompt, categories)
                 else:
-                    result = analyze_webcam_image(camera_info.url, PROMPT)
-                analysis.rating = parse_rating_response(result.text)
+                    rating = analyze_webcam_image(camera_info.url, prompt, categories)
+                analysis.rating = rating
                 return analysis  # Success, return immediately
             except Exception as e:
                 last_error = e
@@ -184,31 +205,15 @@ class ResortAnalyzer:
         # Get all webcam URLs
         all_camera_infos = self.downloader.get_resort_urls(resort_key)
 
-        # Separate snow stake cameras (don't analyze, but include in results)
-        cameras_to_analyze = [c for c in all_camera_infos if c.camera.type != CameraType.SNOW_STAKE]
-        snow_stake_cameras = [c for c in all_camera_infos if c.camera.type == CameraType.SNOW_STAKE]
-
         resort_name = all_camera_infos[0].resort.name if all_camera_infos else resort_key
         summary = ResortSummary(resort_name=resort_name, resort_key=resort_key)
 
-        # Add snow stake cameras without analysis (just show the image)
-        for cam_info in snow_stake_cameras:
-            analysis = CameraAnalysis(
-                resort_name=cam_info.resort.name,
-                camera_name=cam_info.camera.name,
-                camera_type=cam_info.camera.type,
-                image_url=cam_info.url,
-                is_base64=cam_info.is_base64,
-            )
-            summary.camera_analyses.append(analysis)
-            print(f"    ❄ {cam_info.camera.name}: Snow stake (not analyzed)")
-
-        # Analyze non-snow-stake cameras in parallel
-        print(f"  Analyzing {len(cameras_to_analyze)} cameras in parallel...")
+        # Analyze all cameras in parallel (each camera has its own category config)
+        print(f"  Analyzing {len(all_camera_infos)} cameras in parallel...")
         with ThreadPoolExecutor() as executor:
             future_to_cam = {
                 executor.submit(self.analyze_camera, cam_info): cam_info
-                for cam_info in cameras_to_analyze
+                for cam_info in all_camera_infos
             }
 
             for future in as_completed(future_to_cam):
@@ -217,7 +222,8 @@ class ResortAnalyzer:
                 summary.camera_analyses.append(analysis)
 
                 if analysis.rating:
-                    print(f"    ✓ {cam_info.camera.name}: {analysis.rating.notes}")
+                    categories = cam_info.camera.get_category_names()
+                    print(f"    ✓ {cam_info.camera.name} [{', '.join(categories)}]: {analysis.rating.notes}")
                 else:
                     print(f"    ✗ {cam_info.camera.name}: {analysis.error}")
 
@@ -279,16 +285,12 @@ class ResortAnalyzer:
         print("=" * 70)
 
     @staticmethod
-    def _rating_to_dict(rating: SkiConditionsRating) -> dict:
-        """Convert a rating to a dictionary, excluding None values."""
-        categories = {
-            k: v for k, v in rating.categories.model_dump().items() if v is not None
-        }
-
+    def _rating_to_dict(rating: BaseModel) -> dict:
+        """Convert a rating to a dictionary."""
         return {
             "confidence": rating.confidence,
             "notes": rating.notes,
-            "categories": categories,
+            "categories": rating.categories.model_dump(),
         }
 
     @staticmethod
@@ -305,7 +307,6 @@ class ResortAnalyzer:
                     "cameras": [
                         {
                             "camera_name": a.camera_name,
-                            "camera_type": a.camera_type.value,
                             "image_url": a.image_url,
                             "is_base64": a.is_base64,
                             "rating": ResortAnalyzer._rating_to_dict(a.rating) if a.rating else None,

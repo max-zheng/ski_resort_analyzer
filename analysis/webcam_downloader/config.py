@@ -17,15 +17,15 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-class CameraType(Enum):
-    """Type of webcam view."""
-    BASE = "base"          # Base area / lodge
-    SUMMIT = "summit"      # Summit / peak
-    LIFT = "lift"          # Chair lift / gondola
-    TERRAIN = "terrain"    # Ski runs / terrain
-    PARKING = "parking"    # Parking lot
-    SNOW_STAKE = "snow_stake"  # Snow measurement
-    OTHER = "other"
+class Category(Enum):
+    """Rating categories for webcam analysis."""
+    SNOW_QUALITY = "snow_quality"
+    VISIBILITY = "visibility"
+    WEATHER = "weather_conditions"
+    ACTIVITY = "activity"
+
+
+ALL = [Category.SNOW_QUALITY, Category.VISIBILITY, Category.WEATHER, Category.ACTIVITY]
 
 
 @dataclass
@@ -34,7 +34,11 @@ class Camera:
     id: str
     name: str
     provider: str
-    type: CameraType = CameraType.OTHER
+    categories: list[Category]
+
+    def get_category_names(self) -> list[str]:
+        """Get category names to evaluate for this camera."""
+        return [c.value for c in self.categories]
 
 
 @dataclass
@@ -60,36 +64,11 @@ RESORTS: dict[str, Resort] = {
         website="https://www.stevenspass.com",
         region="Washington",
         cameras=[
-            Camera(
-                id="stevenspasssnowstake",
-                name="Snow Stake",
-                provider="brownrice",
-                type=CameraType.SNOW_STAKE,
-            ),
-            Camera(
-                id="stevenspasscourtyard",
-                name="Courtyard",
-                provider="brownrice",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="stevenspassschool",
-                name="Ski School",
-                provider="brownrice",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="stevenspassjupiter",
-                name="Jupiter Chair",
-                provider="brownrice",
-                type=CameraType.LIFT,
-            ),
-            Camera(
-                id="stevenspassskyline",
-                name="Skyline Chair",
-                provider="brownrice",
-                type=CameraType.LIFT,
-            ),
+            Camera(id="stevenspasssnowstake", name="Snow Stake", provider="brownrice", categories=[Category.SNOW_QUALITY, Category.WEATHER, Category.VISIBILITY]),
+            Camera(id="stevenspasscourtyard", name="Courtyard", provider="brownrice", categories=ALL),
+            Camera(id="stevenspassschool", name="Ski School", provider="brownrice", categories=ALL),
+            Camera(id="stevenspassjupiter", name="Jupiter Chair", provider="brownrice", categories=ALL),
+            Camera(id="stevenspassskyline", name="Skyline Chair", provider="brownrice", categories=ALL),
         ],
     ),
 
@@ -101,41 +80,12 @@ RESORTS: dict[str, Resort] = {
         website="https://skiwhitepass.com",
         region="Washington",
         cameras=[
-            Camera(
-                id="pigtailpeak",
-                name="Pigtail Peak",
-                provider="brownrice",
-                type=CameraType.SUMMIT,
-            ),
-            Camera(
-                id="couloir",
-                name="Couloir",
-                provider="brownrice",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="whitepasslive",
-                name="Base Area",
-                provider="brownrice",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="whitepasshighcamp",
-                name="High Camp",
-                provider="brownrice",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="whitepasssnowstake",
-                name="Snow Stake",
-                provider="brownrice",
-                type=CameraType.SNOW_STAKE,
-            ),
-            Camera(
-                id="whitepassnordic",
-                name="Nordic Center",
-                provider="brownrice",
-            ),
+            Camera(id="pigtailpeak", name="Pigtail Peak", provider="brownrice", categories=ALL),
+            Camera(id="couloir", name="Couloir", provider="brownrice", categories=ALL),
+            Camera(id="whitepasslive", name="Base Area", provider="brownrice", categories=ALL),
+            Camera(id="whitepasshighcamp", name="High Camp", provider="brownrice", categories=ALL),
+            Camera(id="whitepasssnowstake", name="Snow Stake", provider="brownrice", categories=[Category.SNOW_QUALITY, Category.WEATHER, Category.VISIBILITY]),
+            Camera(id="whitepassnordic", name="Nordic Center", provider="brownrice", categories=ALL),
         ],
     ),
 
@@ -148,59 +98,15 @@ RESORTS: dict[str, Resort] = {
         website="https://www.whistlerblackcomb.com",
         region="British Columbia",
         cameras=[
-            Camera(
-                id="whistlerblackcomb",
-                name="Blackcomb Base",
-                provider="brownrice",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="whistlerroundhouse",
-                name="Roundhouse",
-                provider="brownrice",
-            ),
-            Camera(
-                id="whistlerpeak",
-                name="Peak",
-                provider="brownrice",
-                type=CameraType.SUMMIT,
-            ),
-            Camera(
-                id="whistlervillage",
-                name="Village",
-                provider="brownrice",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="whistlercreekside",
-                name="Creekside",
-                provider="brownrice",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="whistlersnowstack",
-                name="Snow Stack",
-                provider="brownrice",
-                type=CameraType.SNOW_STAKE,
-            ),
-            Camera(
-                id="whistler7thheaven",
-                name="7th Heaven",
-                provider="brownrice",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="whistlerglacier",
-                name="Glacier",
-                provider="brownrice",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="whistlervillagefitz",
-                name="Village Fitzsimons",
-                provider="brownrice",
-                type=CameraType.BASE,
-            ),
+            Camera(id="whistlerblackcomb", name="Blackcomb Base", provider="brownrice", categories=ALL),
+            Camera(id="whistlerroundhouse", name="Roundhouse", provider="brownrice", categories=ALL),
+            Camera(id="whistlerpeak", name="Peak", provider="brownrice", categories=ALL),
+            Camera(id="whistlervillage", name="Village", provider="brownrice", categories=ALL),
+            Camera(id="whistlercreekside", name="Creekside", provider="brownrice", categories=ALL),
+            Camera(id="whistlersnowstack", name="Snow Stack", provider="brownrice", categories=[Category.SNOW_QUALITY, Category.WEATHER, Category.VISIBILITY]),
+            Camera(id="whistler7thheaven", name="7th Heaven", provider="brownrice", categories=ALL),
+            Camera(id="whistlerglacier", name="Glacier", provider="brownrice", categories=ALL),
+            Camera(id="whistlervillagefitz", name="Village Fitzsimons", provider="brownrice", categories=[Category.WEATHER, Category.VISIBILITY, Category.ACTIVITY]),
         ],
     ),
 
@@ -213,42 +119,12 @@ RESORTS: dict[str, Resort] = {
         website="https://www.summitatsnoqualmie.com",
         region="Washington",
         cameras=[
-            Camera(
-                id="w4Sno8NIjmU",
-                name="Summit Central Express Top",
-                provider="youtube",
-                type=CameraType.LIFT,
-            ),
-            Camera(
-                id="H7HwsNLqVC8",
-                name="Silver Fir Base Area",
-                provider="youtube",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="c83QV-cloJs",
-                name="Summit Central Base Area",
-                provider="youtube",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="YhM0ns8LLOg",
-                name="Summit West Base Area",
-                provider="youtube",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="vhO8nNqg9iw",
-                name="Summit East Base Area",
-                provider="youtube",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="8wk81COX2cg",
-                name="Alpental Base Area",
-                provider="youtube",
-                type=CameraType.BASE,
-            ),
+            Camera(id="w4Sno8NIjmU", name="Summit Central Express Top", provider="youtube", categories=ALL),
+            Camera(id="H7HwsNLqVC8", name="Silver Fir Base Area", provider="youtube", categories=ALL),
+            Camera(id="c83QV-cloJs", name="Summit Central Base Area", provider="youtube", categories=[]),
+            Camera(id="YhM0ns8LLOg", name="Summit West Base Area", provider="youtube", categories=ALL),
+            Camera(id="vhO8nNqg9iw", name="Summit East Base Area", provider="youtube", categories=ALL),
+            Camera(id="8wk81COX2cg", name="Alpental Base Area", provider="youtube", categories=ALL),
         ],
     ),
 
@@ -261,24 +137,9 @@ RESORTS: dict[str, Resort] = {
         website="https://www.missionridge.com",
         region="Washington",
         cameras=[
-            Camera(
-                id="Wy1f0CzNaAM",
-                name="Sunspot",
-                provider="youtube",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="WviO5Mlq_TE",
-                name="Midway",
-                provider="youtube",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="TERghSgEi_o",
-                name="Mimi",
-                provider="youtube",
-                type=CameraType.TERRAIN,
-            ),
+            Camera(id="Wy1f0CzNaAM", name="Sunspot", provider="youtube", categories=ALL),
+            Camera(id="WviO5Mlq_TE", name="Midway", provider="youtube", categories=ALL),
+            Camera(id="TERghSgEi_o", name="Mimi", provider="youtube", categories=ALL),
         ],
     ),
 
@@ -291,24 +152,9 @@ RESORTS: dict[str, Resort] = {
         website="https://www.ski49n.com",
         region="Washington",
         cameras=[
-            Camera(
-                id="lodge",
-                name="Lodge",
-                provider="ski49n",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="summit",
-                name="Summit",
-                provider="ski49n",
-                type=CameraType.SUMMIT,
-            ),
-            Camera(
-                id="sunrise",
-                name="Sunrise Basin",
-                provider="ski49n",
-                type=CameraType.TERRAIN,
-            ),
+            Camera(id="lodge", name="Lodge", provider="ski49n", categories=ALL),
+            Camera(id="summit", name="Summit", provider="ski49n", categories=ALL),
+            Camera(id="sunrise", name="Sunrise Basin", provider="ski49n", categories=ALL),
         ],
     ),
 
@@ -321,30 +167,10 @@ RESORTS: dict[str, Resort] = {
         website="https://www.skihood.com",
         region="Oregon",
         cameras=[
-            Camera(
-                id="c878c340832e23aab90526673b71cc17",
-                name="Top of Blue",
-                provider="wetmet",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="1be5f08dfca10d15d5e4ec9627c17c7c",
-                name="Bottom of Vista",
-                provider="wetmet",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="eec27f8164fc1105656ea4d46df4cd37",
-                name="Top of Vista",
-                provider="wetmet",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="072e3c1a6016174851619e4180909d3d",
-                name="Base Area",
-                provider="wetmet",
-                type=CameraType.BASE,
-            ),
+            Camera(id="c878c340832e23aab90526673b71cc17", name="Top of Blue", provider="wetmet", categories=ALL),
+            Camera(id="1be5f08dfca10d15d5e4ec9627c17c7c", name="Bottom of Vista", provider="wetmet", categories=ALL),
+            Camera(id="eec27f8164fc1105656ea4d46df4cd37", name="Top of Vista", provider="wetmet", categories=[Category.SNOW_QUALITY, Category.WEATHER, Category.VISIBILITY]),
+            Camera(id="072e3c1a6016174851619e4180909d3d", name="Base Area", provider="wetmet", categories=ALL),
         ],
     ),
 
@@ -357,36 +183,11 @@ RESORTS: dict[str, Resort] = {
         website="https://www.bigwhite.com",
         region="British Columbia",
         cameras=[
-            Camera(
-                id="village",
-                name="Village Centre",
-                provider="bigwhite",
-                type=CameraType.BASE,
-            ),
-            Camera(
-                id="powpow",
-                name="Pow Cam",
-                provider="bigwhite",
-                type=CameraType.SNOW_STAKE,
-            ),
-            Camera(
-                id="cliff",
-                name="The Cliff",
-                provider="bigwhite",
-                type=CameraType.SUMMIT,
-            ),
-            Camera(
-                id="easystreet",
-                name="Easy Street",
-                provider="bigwhite",
-                type=CameraType.TERRAIN,
-            ),
-            Camera(
-                id="happyvalley",
-                name="Happy Valley",
-                provider="bigwhite",
-                type=CameraType.BASE,
-            ),
+            Camera(id="village", name="Village Centre", provider="bigwhite", categories=ALL),
+            Camera(id="powpow", name="Pow Cam", provider="bigwhite", categories=[Category.SNOW_QUALITY]),
+            Camera(id="cliff", name="The Cliff", provider="bigwhite", categories=ALL),
+            Camera(id="easystreet", name="Easy Street", provider="bigwhite", categories=ALL),
+            Camera(id="happyvalley", name="Happy Valley", provider="bigwhite", categories=ALL),
         ],
     ),
 }

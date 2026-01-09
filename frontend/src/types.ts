@@ -10,7 +10,6 @@ export interface Rating {
 
 export interface Camera {
   camera_name: string;
-  camera_type: string;
   image_url: string | null;
   is_base64: boolean;
   rating: Rating | null;
